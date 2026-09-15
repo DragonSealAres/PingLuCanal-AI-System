@@ -1,0 +1,51 @@
+server:
+  port: 8080
+
+debug: false
+
+spring:
+  application:
+    name: pinglu-safety-backend
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://localhost:3306/pinglu_ai?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true
+    username: root
+    password: 123456
+
+mybatis-plus:
+  mapper-locations: classpath*:/mapper/**/*.xml
+  type-aliases-package: com.pinglu.safety.entity
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    banner: false
+    db-config:
+      id-type: auto
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    root: info
+    org.springframework: info
+    org.mybatis: info
+    com.pinglu.safety: info
+
+file:
+  upload:
+    root-path: uploads
+
+ai:
+  mock-enabled: false
+  api-key: ${AI_API_KEY:}
+  base-url: ${AI_BASE_URL:https://dashscope.aliyuncs.com/compatible-mode/v1}
+  model: ${AI_MODEL:qwen3-vl-plus}
+  timeout-seconds: 60

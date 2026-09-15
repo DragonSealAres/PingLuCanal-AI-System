@@ -1,0 +1,12 @@
+{
+  "java.jdt.ls.java.home": "C:\\NoSystem\\Java Series\\jdk17",
+  "java.configuration.runtimes": [
+    {
+      "name": "JavaSE-17",
+      "path": "C:\\NoSystem\\Java Series\\jdk17",
+      "default": true
+    }
+  ],
+  "java.import.gradle.java.home": "C:\\NoSystem\\Java Series\\jdk17",
+  "java.compile.nullAnalysis.mode": "automatic"
+}

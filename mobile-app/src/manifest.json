@@ -1,0 +1,17 @@
+{
+  "name": "平陆运河AI水上安全巡检助手",
+  "appid": "__UNI__PINGLU_SAFETY",
+  "description": "平陆运河AI水上安全巡检系统移动巡检端",
+  "versionName": "0.0.1",
+  "versionCode": "1",
+  "transformPx": false,
+  "h5": {
+    "title": "平陆运河AI水上安全巡检助手",
+    "router": {
+      "mode": "hash"
+    },
+    "devServer": {
+      "port": 5174
+    }
+  }
+}

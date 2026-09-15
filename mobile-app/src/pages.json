@@ -1,0 +1,46 @@
+{
+  "pages": [
+    {
+      "path": "pages/index/index",
+      "style": {
+        "navigationBarTitleText": "巡检助手"
+      }
+    },
+    {
+      "path": "pages/report/report",
+      "style": {
+        "navigationBarTitleText": "拍照上报"
+      }
+    },
+    {
+      "path": "pages/confirm/confirm",
+      "style": {
+        "navigationBarTitleText": "识别确认"
+      }
+    },
+    {
+      "path": "pages/my-reports/my-reports",
+      "style": {
+        "navigationBarTitleText": "我的上报"
+      }
+    },
+    {
+      "path": "pages/work-orders/work-orders",
+      "style": {
+        "navigationBarTitleText": "我的工单"
+      }
+    },
+    {
+      "path": "pages/work-order-detail/work-order-detail",
+      "style": {
+        "navigationBarTitleText": "工单详情"
+      }
+    }
+  ],
+  "globalStyle": {
+    "navigationBarTextStyle": "white",
+    "navigationBarTitleText": "平陆运河AI巡检",
+    "navigationBarBackgroundColor": "#12343b",
+    "backgroundColor": "#eef5f7"
+  }
+}

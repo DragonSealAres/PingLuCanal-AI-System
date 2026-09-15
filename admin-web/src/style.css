@@ -1,0 +1,265 @@
+:root {
+  color: #1f2933;
+  background: #f4f7f9;
+  font-family:
+    Inter, "Segoe UI", "Microsoft YaHei", "PingFang SC", Arial, sans-serif;
+  font-size: 14px;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 1180px;
+  background: #f4f7f9;
+}
+
+#app {
+  min-height: 100vh;
+}
+
+h1,
+h2,
+p {
+  margin: 0;
+}
+
+.admin-shell {
+  min-height: 100vh;
+}
+
+.admin-aside {
+  min-height: 100vh;
+  border-right: 1px solid #d9e2ec;
+  background: #12343b;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 72px;
+  padding: 0 18px;
+  color: #ffffff;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  font-weight: 700;
+  color: #12343b;
+  background: #c6f6d5;
+}
+
+.brand-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.brand-subtitle {
+  margin-top: 2px;
+  font-size: 12px;
+  color: #b8c7cc;
+}
+
+.side-menu {
+  border-right: 0;
+  background: transparent;
+}
+
+.side-menu .el-menu-item {
+  height: 48px;
+  color: #d4e3e7;
+}
+
+.side-menu .el-menu-item:hover {
+  color: #ffffff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.side-menu .el-menu-item.is-active {
+  color: #ffffff;
+  background: #1f7a8c;
+}
+
+.admin-header {
+  display: flex;
+  align-items: center;
+  height: 72px;
+  padding: 0 28px;
+  border-bottom: 1px solid #d9e2ec;
+  background: #ffffff;
+}
+
+.admin-header h1 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #102a43;
+  letter-spacing: 0;
+}
+
+.admin-header p {
+  margin-top: 4px;
+  color: #627d98;
+}
+
+.admin-main {
+  padding: 24px;
+  background: #f4f7f9;
+}
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-height: calc(100vh - 120px);
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.toolbar h2 {
+  font-size: 20px;
+  font-weight: 700;
+  color: #102a43;
+  letter-spacing: 0;
+}
+
+.toolbar p {
+  margin-top: 6px;
+  color: #627d98;
+}
+
+.panel {
+  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.panel-title {
+  height: 48px;
+  padding: 15px 18px 0;
+  font-weight: 700;
+  color: #102a43;
+}
+
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.metric-card {
+  min-height: 112px;
+  padding: 20px;
+  border: 1px solid #d9e2ec;
+  border-left: 4px solid #1f7a8c;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.metric-card span {
+  display: block;
+  color: #627d98;
+}
+
+.metric-card strong {
+  display: block;
+  margin-top: 16px;
+  font-size: 34px;
+  line-height: 1;
+  color: #102a43;
+}
+
+.metric-card.danger {
+  border-left-color: #d1495b;
+}
+
+.metric-card.warning {
+  border-left-color: #e0a458;
+}
+
+.metric-card.success {
+  border-left-color: #2f855a;
+}
+
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.chart {
+  width: 100%;
+  height: 360px;
+}
+
+.table-image {
+  width: 56px;
+  height: 56px;
+  border-radius: 6px;
+  border: 1px solid #d9e2ec;
+  background: #f4f7f9;
+}
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: 420px minmax(0, 1fr);
+  gap: 18px;
+}
+
+.image-panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 300px;
+  padding: 14px;
+}
+
+.detail-image {
+  width: 100%;
+  height: 280px;
+  border-radius: 6px;
+  background: #f4f7f9;
+}
+
+.detail-section {
+  padding-bottom: 18px;
+}
+
+.el-table {
+  --el-table-header-bg-color: #f8fafc;
+  --el-table-header-text-color: #334e68;
+}
+
+.el-button {
+  letter-spacing: 0;
+}
+
+@media (max-width: 1280px) {
+  body {
+    min-width: 1024px;
+  }
+
+  .metric-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .detail-grid {
+    grid-template-columns: 360px minmax(0, 1fr);
+  }
+}

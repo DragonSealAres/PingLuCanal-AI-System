@@ -1,0 +1,7 @@
+target/
+uploads/
+*.log
+.idea/
+*.iml
+.vscode/
+!.vscode/settings.json
