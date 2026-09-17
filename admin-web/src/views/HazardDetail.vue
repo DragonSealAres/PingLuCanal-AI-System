@@ -3,6 +3,9 @@ import { ElMessage } from 'element-plus'
 import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { approveHazard, getHazardDetail } from '../api/hazard'
+import { getBusinessLogs } from '../api/operationLog'
+import { getBaseUrl } from '../api/request'
+import { getWorkers } from '../api/user'
 import { createWorkOrder } from '../api/workOrder'
 
 const route = useRoute()
@@ -10,7 +13,8 @@ const router = useRouter()
 const loading = ref(false)
 const actionLoading = ref(false)
 const hazard = ref(null)
-const backendBaseUrl = 'http://localhost:8080'
+const logs = ref([])
+const workers = ref([])
 const approveDialogVisible = ref(false)
 const orderDialogVisible = ref(false)
 const approveFormRef = ref(null)
@@ -25,7 +29,7 @@ const approveForm = reactive({
 })
 const orderForm = reactive({
   title: '',
-  handler: '处置人员01',
+  handlerId: null,
   requirement: '',
 })
 
@@ -36,7 +40,7 @@ const approveRules = {
 }
 const orderRules = {
   title: [{ required: true, message: '请输入工单标题', trigger: 'blur' }],
-  handler: [{ required: true, message: '请输入处置人员', trigger: 'blur' }],
+  handlerId: [{ required: true, message: '请选择处置人员', trigger: 'change' }],
 }
 
 const aiInfo = computed(() => {
@@ -52,7 +56,7 @@ const aiInfo = computed(() => {
 
 function fileUrl(url) {
   if (!url) return ''
-  return url.startsWith('http') ? url : `${backendBaseUrl}${url}`
+  return url.startsWith('http') ? url : `${getBaseUrl()}${url}`
 }
 
 function riskTagType(level) {
@@ -80,15 +84,19 @@ async function submitApprove() {
     hazard.value = await approveHazard(route.params.id, { ...approveForm })
     approveDialogVisible.value = false
     ElMessage.success('隐患审核成功')
+    await loadLogs()
   } finally {
     actionLoading.value = false
   }
 }
 
-function openOrderDialog() {
+async function openOrderDialog() {
+  if (!workers.value.length) {
+    workers.value = (await getWorkers()) || []
+  }
   orderForm.title = `平陆运河${hazard.value?.hazardType || '隐患'}处置`
-  orderForm.handler = '处置人员01'
-  orderForm.requirement = `根据${hazard.value?.riskLevel || ''}隐患要求，请及时到${hazard.value?.location || '现场'}处理。`
+  orderForm.handlerId = workers.value[0]?.id || null
+  orderForm.requirement = `请及时到 ${hazard.value?.location || '现场'} 处置，并上传处理结果。`
   orderDialogVisible.value = true
 }
 
@@ -103,15 +111,24 @@ async function submitOrder() {
     hazard.value.status = '处理中'
     orderDialogVisible.value = false
     ElMessage.success(`工单生成成功：${result.orderNo}`)
+    await loadLogs()
   } finally {
     actionLoading.value = false
   }
 }
 
+async function loadLogs() {
+  logs.value = (await getBusinessLogs('HAZARD', Number(route.params.id))) || []
+}
+
 async function loadDetail() {
   loading.value = true
   try {
-    hazard.value = await getHazardDetail(route.params.id)
+    const [detail] = await Promise.all([
+      getHazardDetail(route.params.id),
+      loadLogs(),
+    ])
+    hazard.value = detail
   } finally {
     loading.value = false
   }
@@ -128,20 +145,8 @@ onMounted(loadDetail)
         <p>{{ hazard?.reportNo || '-' }}</p>
       </div>
       <div class="toolbar-actions">
-        <el-button
-          v-if="hazard?.status === '待审核'"
-          type="primary"
-          @click="openApproveDialog"
-        >
-          审核隐患
-        </el-button>
-        <el-button
-          v-if="hazard?.status === '已审核'"
-          type="success"
-          @click="openOrderDialog"
-        >
-          生成处置工单
-        </el-button>
+        <el-button v-if="hazard?.status === '待审核'" type="primary" @click="openApproveDialog">审核隐患</el-button>
+        <el-button v-if="hazard?.status === '已审核'" type="success" @click="openOrderDialog">生成处置工单</el-button>
         <el-button @click="router.push('/hazards')">返回</el-button>
       </div>
     </div>
@@ -171,6 +176,8 @@ onMounted(loadDetail)
           </el-descriptions-item>
           <el-descriptions-item label="上报人">{{ hazard.reportUser }}</el-descriptions-item>
           <el-descriptions-item label="上报时间">{{ formatTime(hazard.createTime) }}</el-descriptions-item>
+          <el-descriptions-item label="首次审核人">{{ hazard.auditUserName || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="审核时间">{{ formatTime(hazard.auditTime) }}</el-descriptions-item>
         </el-descriptions>
       </div>
     </section>
@@ -184,14 +191,22 @@ onMounted(loadDetail)
       </el-descriptions>
     </section>
 
+    <section class="panel detail-section">
+      <div class="panel-title">处置轨迹</div>
+      <el-timeline class="trace-list">
+        <el-timeline-item
+          v-for="item in logs"
+          :key="item.id"
+          :timestamp="formatTime(item.createTime)"
+          placement="top"
+        >
+          {{ item.operatorName }} {{ item.action }} {{ item.remark || '' }}
+        </el-timeline-item>
+      </el-timeline>
+      <el-empty v-if="!logs.length" description="暂无轨迹" />
+    </section>
+
     <el-dialog v-model="approveDialogVisible" title="审核隐患" width="560px">
-      <el-alert title="AI识别结果仅供参考，请确认后保存最终结果。" type="info" :closable="false" show-icon />
-      <el-descriptions :column="1" border class="dialog-section">
-        <el-descriptions-item label="AI识别类型">{{ aiInfo?.hazardType || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="AI风险等级">{{ aiInfo?.riskLevel || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="AI描述">{{ aiInfo?.description || hazard?.description || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="AI处置建议">{{ aiInfo?.suggestion || '-' }}</el-descriptions-item>
-      </el-descriptions>
       <el-form ref="approveFormRef" :model="approveForm" :rules="approveRules" label-width="90px">
         <el-form-item label="隐患类型" prop="hazardType">
           <el-select v-model="approveForm.hazardType" style="width: 100%">
@@ -214,17 +229,19 @@ onMounted(loadDetail)
     </el-dialog>
 
     <el-dialog v-model="orderDialogVisible" title="生成处置工单" width="560px">
-      <el-descriptions :column="2" border class="dialog-section">
-        <el-descriptions-item label="隐患类型">{{ hazard?.hazardType }}</el-descriptions-item>
-        <el-descriptions-item label="风险等级">{{ hazard?.riskLevel }}</el-descriptions-item>
-        <el-descriptions-item label="隐患位置" :span="2">{{ hazard?.location }}</el-descriptions-item>
-      </el-descriptions>
       <el-form ref="orderFormRef" :model="orderForm" :rules="orderRules" label-width="90px">
         <el-form-item label="工单标题" prop="title">
           <el-input v-model="orderForm.title" maxlength="200" />
         </el-form-item>
-        <el-form-item label="处置人员" prop="handler">
-          <el-input v-model="orderForm.handler" maxlength="100" />
+        <el-form-item label="处置人员" prop="handlerId">
+          <el-select v-model="orderForm.handlerId" style="width: 100%">
+            <el-option
+              v-for="worker in workers"
+              :key="worker.id"
+              :label="`${worker.realName}（${worker.username}）`"
+              :value="worker.id"
+            />
+          </el-select>
         </el-form-item>
         <el-form-item label="处置要求">
           <el-input v-model="orderForm.requirement" type="textarea" :rows="4" maxlength="1000" show-word-limit />
@@ -245,7 +262,7 @@ onMounted(loadDetail)
   gap: 10px;
 }
 
-.dialog-section {
-  margin-bottom: 18px;
+.trace-list {
+  padding: 18px 24px 4px;
 }
 </style>

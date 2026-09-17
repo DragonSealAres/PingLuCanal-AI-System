@@ -1,10 +1,9 @@
 import { request } from './request'
 
-export function getMyWorkOrders(handler = '处置人员01') {
+export function getMyWorkOrders() {
   return request({
-    url: '/api/work-orders',
+    url: '/api/work-orders/my',
     method: 'GET',
-    data: { handler },
   })
 }
 

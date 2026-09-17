@@ -93,3 +93,18 @@ VITE_AMAP_SECURITY_JS_CODE=your_security_js_code_here
 - 不要把真实API Key、地图Key、数据库密码提交到仓库。
 - 课程演示数据位于 `docs/sql/demo_data.sql`，不是生产数据。
 - AI不可用时可临时启用Mock模式用于现场兜底，正式验收建议使用真实API。
+
+## 用户、登录与责任追踪
+
+本系统已加入轻量用户体系：`INSPECTOR`、`WORKER`、`ADMIN`、`SUPER_ADMIN`。登录接口为 `POST /api/auth/login`，登录后前端统一携带 `Authorization: Bearer <token>`，当前用户接口为 `GET /api/auth/me`。
+
+课程演示账号仅用于本地演示环境，统一密码为 `123456`：
+
+- `inspector01`：巡检员
+- `worker01`、`worker02`、`worker03`：处置人员
+- `admin01`：管理员
+- `superadmin`：系统管理员
+
+数据库迁移脚本：`backend/sql/migration_20260916_user_auth_responsibility.sql`。该脚本会创建 `sys_user`、`operation_log`，并为隐患和工单增加上报人、审核人、派单人、处理人、最终复核人等责任追踪字段。
+
+安全配置继续依赖本地环境变量：`MYSQL_ROOT_PASSWORD`、`JWT_SECRET`、`AI_API_KEY`、`VITE_AMAP_KEY` 等敏感值不要写入源码。JWT Secret 建议在本地 `.env.local.ps1` 中配置。

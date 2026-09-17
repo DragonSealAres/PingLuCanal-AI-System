@@ -15,6 +15,13 @@ export function getHazards() {
   })
 }
 
+export function getMyHazards() {
+  return request({
+    url: '/api/hazards/my',
+    method: 'GET',
+  })
+}
+
 export function getHazardDetail(id) {
   return request({
     url: `/api/hazards/${id}`,

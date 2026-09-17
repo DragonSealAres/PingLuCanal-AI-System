@@ -4,6 +4,7 @@ import { getHazardDetail } from '../../api/hazard'
 import { getBaseUrl } from '../../api/request'
 import { uploadImage } from '../../api/file'
 import { finishWorkOrder, getWorkOrderDetail, startWorkOrder } from '../../api/workOrder'
+import { requireLogin } from '../../utils/auth'
 
 const order = ref(null)
 const hazard = ref(null)
@@ -131,6 +132,7 @@ async function loadDetail(id) {
 }
 
 onMounted(() => {
+  if (!requireLogin()) return
   const pages = getCurrentPages()
   const currentPage = pages[pages.length - 1]
   const id = currentPage?.options?.id
@@ -146,7 +148,8 @@ onMounted(() => {
 <template>
   <view class="page order-detail-page">
     <view v-if="loading" class="loading-tip">正在加载工单详情...</view>
-    <view v-if="order && hazard" class="section">
+
+    <view v-if="order" class="section">
       <view class="order-head">
         <view>
           <text class="order-no">{{ order.orderNo }}</text>
@@ -154,16 +157,19 @@ onMounted(() => {
         </view>
         <text class="status-tag" :class="statusClass(order.status)">{{ statusLabel(order.status) }}</text>
       </view>
+      <view class="info-block">
+        <text class="label">派单人</text>
+        <text class="value">{{ order.assignedByName || '-' }} {{ formatTime(order.assignedTime) }}</text>
+      </view>
+      <view class="info-block">
+        <text class="label">处置要求</text>
+        <text class="value">{{ order.requirement || '-' }}</text>
+      </view>
     </view>
 
     <view v-if="order && hazard" class="section">
       <view class="section-title">隐患信息</view>
-      <image
-        v-if="hazard.imageUrl"
-        class="hazard-image"
-        :src="fileUrl(hazard.imageUrl)"
-        mode="aspectFill"
-      />
+      <image v-if="hazard.imageUrl" class="hazard-image" :src="fileUrl(hazard.imageUrl)" mode="aspectFill" />
       <view class="info-grid">
         <view class="info-item">
           <text class="label">关联隐患</text>
@@ -179,7 +185,7 @@ onMounted(() => {
         </view>
         <view class="info-item">
           <text class="label">处置人员</text>
-          <text class="value">{{ order.handler }}</text>
+          <text class="value">{{ order.handlerName || order.handler }}</text>
         </view>
       </view>
       <view class="info-block">
@@ -194,10 +200,6 @@ onMounted(() => {
         <text class="label">AI处置建议</text>
         <text class="value">{{ parseAiResult(hazard.aiResult)?.suggestion || '-' }}</text>
       </view>
-      <view class="info-block">
-        <text class="label">管理员处置要求</text>
-        <text class="value">{{ order.requirement || '-' }}</text>
-      </view>
     </view>
 
     <view v-if="order && (order.status === '待派单' || order.status === '待处理')" class="section">
@@ -207,54 +209,27 @@ onMounted(() => {
     <view v-if="order && order.status === '处理中'" class="section">
       <view class="section-title">现场处理结果</view>
       <view v-if="localHandleImage || handleImage" class="handle-preview-wrap">
-        <image
-          class="handle-preview"
-          :src="fileUrl(localHandleImage || handleImage)"
-          mode="aspectFill"
-        />
+        <image class="handle-preview" :src="fileUrl(localHandleImage || handleImage)" mode="aspectFill" />
       </view>
       <button class="main-button ghost" @click="chooseHandleImage">拍摄或选择处理后照片</button>
-      <button
-        class="main-button secondary"
-        :loading="actionLoading"
-        @click="uploadHandleImage"
-      >
-        上传处理照片
-      </button>
+      <button class="main-button secondary" :loading="actionLoading" @click="uploadHandleImage">上传处理照片</button>
       <view v-if="handleImage" class="upload-success">处理照片已上传</view>
-      <textarea
-        v-model="form.handleRemark"
-        class="remark-input"
-        maxlength="1000"
-        placeholder="请填写处理说明，例如：已完成该航段漂浮树枝清理"
-      />
-      <button class="main-button primary" :loading="actionLoading" @click="submitResult">
-        提交处理结果
-      </button>
+      <textarea v-model="form.handleRemark" class="remark-input" maxlength="1000" placeholder="请填写处理说明" />
+      <button class="main-button primary" :loading="actionLoading" @click="submitResult">提交处理结果</button>
     </view>
 
     <view v-if="order && order.status === '待复核'" class="section notice-section">
       <text class="notice-title">处理结果已提交</text>
       <text class="notice-text">请等待管理员复核。</text>
-      <image
-        v-if="order.handleImage"
-        class="handle-preview"
-        :src="fileUrl(order.handleImage)"
-        mode="aspectFill"
-      />
+      <image v-if="order.handleImage" class="handle-preview" :src="fileUrl(order.handleImage)" mode="aspectFill" />
       <text class="label">处理说明</text>
       <text class="value">{{ order.handleRemark || '-' }}</text>
     </view>
 
     <view v-if="order && order.status === '已完成'" class="section notice-section done-section">
       <text class="notice-title">工单已完成</text>
-      <text class="notice-text">管理员已审核通过。</text>
-      <image
-        v-if="order.handleImage"
-        class="handle-preview"
-        :src="fileUrl(order.handleImage)"
-        mode="aspectFill"
-      />
+      <text class="notice-text">最终复核人：{{ order.reviewUserName || '-' }} {{ formatTime(order.reviewTime) }}</text>
+      <image v-if="order.handleImage" class="handle-preview" :src="fileUrl(order.handleImage)" mode="aspectFill" />
       <text class="label">处理说明</text>
       <text class="value">{{ order.handleRemark || '-' }}</text>
     </view>
@@ -280,6 +255,7 @@ onMounted(() => {
   padding: 16px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: 0 8px 20px rgba(16, 42, 67, 0.06);
 }
 
 .order-head {
@@ -359,7 +335,7 @@ onMounted(() => {
 
 .info-item,
 .info-block {
-  margin-bottom: 12px;
+  margin-top: 12px;
 }
 
 .label {
@@ -402,6 +378,12 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 16px;
   font-weight: 700;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.main-button:active {
+  transform: scale(0.98);
+  opacity: 0.9;
 }
 
 .main-button::after {

@@ -2,15 +2,15 @@
 import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { getHazards } from '../api/hazard'
+import { getBaseUrl } from '../api/request'
 
 const router = useRouter()
 const loading = ref(false)
 const hazards = ref([])
-const backendBaseUrl = 'http://localhost:8080'
 
 function fileUrl(url) {
   if (!url) return ''
-  return url.startsWith('http') ? url : `${backendBaseUrl}${url}`
+  return url.startsWith('http') ? url : `${getBaseUrl()}${url}`
 }
 
 function riskTagType(level) {
@@ -47,7 +47,7 @@ onMounted(loadHazards)
     </div>
 
     <section class="panel">
-      <el-table v-loading="loading" :data="hazards" row-key="id" height="calc(100vh - 238px)">
+      <el-table v-loading="loading" :data="hazards" row-key="id" stripe height="calc(100vh - 238px)">
         <el-table-column prop="reportNo" label="隐患编号" min-width="170" />
         <el-table-column label="图片" width="96">
           <template #default="{ row }">

@@ -1,6 +1,6 @@
 <script setup>
 import { onMounted, ref } from 'vue'
-import { getHazards } from '../../api/hazard'
+import { getMyHazards } from '../../api/hazard'
 import { getBaseUrl } from '../../api/request'
 
 const reports = ref([])
@@ -40,7 +40,7 @@ function showDetail(report) {
 async function loadReports() {
   loading.value = true
   try {
-    reports.value = (await getHazards()) || []
+    reports.value = (await getMyHazards()) || []
   } finally {
     loading.value = false
   }
@@ -122,9 +122,30 @@ onMounted(loadReports)
 }
 
 .empty {
-  margin-top: 80px;
-  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: 72px;
+  padding: 36px 20px;
   color: #829ab1;
+  font-size: 14px;
+}
+
+.empty::before {
+  content: '';
+  width: 92px;
+  height: 92px;
+  margin-bottom: 16px;
+  border-radius: 50%;
+  background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='none' stroke='%239fb3c8' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='12' y='7' width='24' height='34' rx='4'/%3E%3Cpath d='M18 17h12M18 24h12M18 31h8'/%3E%3C/svg%3E") center / 46px no-repeat;
+  box-shadow: 0 10px 24px rgba(16, 42, 67, 0.08);
+}
+
+.empty::after {
+  content: '完成一次隐患上报后，记录会显示在这里';
+  margin-top: 6px;
+  color: #9fb3c8;
+  font-size: 12px;
 }
 
 .report-card {
@@ -135,6 +156,12 @@ onMounted(loadReports)
   border-radius: 14px;
   background: #ffffff;
   box-shadow: 0 8px 20px rgba(16, 42, 67, 0.08);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.report-card:active {
+  transform: scale(0.985);
+  box-shadow: 0 4px 12px rgba(16, 42, 67, 0.1);
 }
 
 .report-thumb {

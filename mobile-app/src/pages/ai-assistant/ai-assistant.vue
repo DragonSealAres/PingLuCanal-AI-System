@@ -118,10 +118,23 @@ function showSource(source) {
 .empty-state {
   display: flex;
   flex-direction: column;
+  align-items: center;
   gap: 10px;
-  padding: 40px 18px;
+  max-width: 320px;
+  margin: 22vh auto 0;
+  padding: 36px 18px;
   text-align: center;
   color: #627d98;
+}
+
+.empty-state::before {
+  content: '';
+  width: 96px;
+  height: 96px;
+  margin-bottom: 8px;
+  border-radius: 28px;
+  background: #ffffff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48' fill='none' stroke='%231f7a8c' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='8' y='8' width='32' height='24' rx='6'/%3E%3Cpath d='M19 32l-7 6v-6'/%3E%3Cpath d='M17 20h.1M24 20h.1M31 20h.1'/%3E%3C/svg%3E") center / 48px no-repeat;
+  box-shadow: 0 12px 28px rgba(31, 122, 140, 0.14);
 }
 
 .empty-title {
@@ -206,6 +219,7 @@ function showSource(source) {
   padding: 12px;
   border-top: 1px solid #d9e2ec;
   background: #ffffff;
+  box-shadow: 0 -4px 16px rgba(16, 42, 67, 0.06);
 }
 
 .question-input {

@@ -2,12 +2,12 @@
 import { computed, onMounted, reactive, ref } from 'vue'
 import { createHazard } from '../../api/hazard'
 import { getBaseUrl } from '../../api/request'
+import { requireLogin } from '../../utils/auth'
 
 const hazardTypes = ['漂浮物', '航道障碍物', '船舶异常', '航标异常', '水面污染', '岸线异常', '非法占道', '其他']
 const riskLevels = ['低风险', '中风险', '高风险']
 const pending = ref(null)
 const submitting = ref(false)
-
 const form = reactive({
   hazardType: '其他',
   riskLevel: '低风险',
@@ -22,7 +22,6 @@ const confidencePercent = computed(() => {
   return Math.max(0, Math.min(100, Math.round(value * 100)))
 })
 const hasHazard = computed(() => aiAnalysis.value.hasHazard ?? aiAnalysis.value.hazard ?? false)
-
 const hazardTypeIndex = computed(() => Math.max(0, hazardTypes.indexOf(form.hazardType)))
 const riskLevelIndex = computed(() => Math.max(0, riskLevels.indexOf(form.riskLevel)))
 
@@ -52,7 +51,7 @@ function validate() {
 }
 
 async function submitReport() {
-  if (!validate()) return
+  if (!requireLogin() || !validate()) return
 
   submitting.value = true
   try {
@@ -65,7 +64,6 @@ async function submitReport() {
       suggestion: form.suggestion,
     }
     const result = await createHazard({
-      reportUser: pending.value.reportUser,
       location: pending.value.location,
       longitude: Number(pending.value.longitude),
       latitude: Number(pending.value.latitude),
@@ -82,7 +80,7 @@ async function submitReport() {
       content: `隐患编号：${result.reportNo}`,
       showCancel: true,
       cancelText: '返回首页',
-      confirmText: '查看我的上报',
+      confirmText: '我的上报',
       success: (res) => {
         if (res.confirm) {
           uni.redirectTo({ url: '/pages/my-reports/my-reports' })
@@ -97,6 +95,7 @@ async function submitReport() {
 }
 
 onMounted(() => {
+  if (!requireLogin()) return
   const data = uni.getStorageSync('pendingReport')
   if (!data) {
     uni.showToast({ title: '请先完成图片识别', icon: 'none' })
@@ -116,45 +115,25 @@ onMounted(() => {
   <view class="page confirm-page">
     <view v-if="pending" class="section">
       <view class="ai-result-header">
-        <view class="ai-result-title-wrap">
-          <view class="ai-badge">AI</view>
-          <view>
-            <text class="ai-result-title">AI图片识别完成</text>
-            <text class="ai-result-subtitle">以下结果由多模态模型辅助生成，请人工确认</text>
-          </view>
+        <view>
+          <text class="ai-result-title">AI图片识别完成</text>
+          <text class="ai-result-subtitle">请人工确认后提交</text>
         </view>
-        <text class="ai-result-status">已完成</text>
+        <text class="ai-result-status">置信度 {{ confidencePercent }}%</text>
       </view>
       <image class="report-image" :src="fullImageUrl(pending.imageUrl)" mode="aspectFill" />
-      <view class="ai-summary">
-        <view class="summary-item">
-          <text>AI判断</text>
-          <strong :class="hasHazard ? 'hazard-yes' : 'hazard-no'">{{ hasHazard ? '存在隐患' : '未发现隐患' }}</strong>
-        </view>
-        <view class="summary-item">
-          <text>AI置信度</text>
-          <strong>{{ confidencePercent }}%</strong>
-        </view>
-      </view>
-      <view class="confidence-track">
-        <view class="confidence-bar" :style="{ width: `${confidencePercent}%` }" />
-      </view>
       <view class="ai-insight">
-        <text class="insight-label">AI初步判断</text>
-        <text class="insight-text">{{ aiAnalysis.description || 'AI未提供描述' }}</text>
-        <text class="insight-label">AI处置建议</text>
-        <text class="insight-text">{{ aiAnalysis.suggestion || 'AI未提供处置建议' }}</text>
+        <text class="insight-label">AI判断</text>
+        <text class="insight-text">{{ hasHazard ? '存在隐患' : '未发现明显隐患' }}</text>
+        <text class="insight-label">AI描述</text>
+        <text class="insight-text">{{ aiAnalysis.description || '-' }}</text>
+        <text class="insight-label">AI建议</text>
+        <text class="insight-text">{{ aiAnalysis.suggestion || '-' }}</text>
       </view>
     </view>
 
     <view class="section">
-      <view class="section-heading">
-        <view>
-          <view class="section-title">人工确认结果</view>
-          <view class="section-subtitle">AI仅作辅助判断，提交前可以修改以下内容</view>
-        </view>
-        <view class="step-badge">3 / 4</view>
-      </view>
+      <view class="section-title">人工确认结果</view>
       <view class="field">
         <text>隐患类型</text>
         <picker :range="hazardTypes" :value="hazardTypeIndex" @change="onHazardTypeChange">
@@ -193,49 +172,15 @@ onMounted(() => {
   padding: 16px;
   border-radius: 14px;
   background: #ffffff;
+  box-shadow: 0 8px 20px rgba(16, 42, 67, 0.06);
 }
 
-.section-title {
+.section-title,
+.ai-result-title {
+  display: block;
+  color: #102a43;
   font-size: 17px;
   font-weight: 700;
-  color: #102a43;
-}
-
-.section-heading {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.section-subtitle {
-  margin-top: 5px;
-  color: #829ab1;
-  font-size: 12px;
-  line-height: 1.4;
-}
-
-.step-badge {
-  flex: 0 0 auto;
-  padding: 4px 8px;
-  border-radius: 999px;
-  color: #1f7a8c;
-  background: #e3f4f6;
-  font-size: 11px;
-}
-
-.report-image {
-  width: 100%;
-  height: 210px;
-  border-radius: 12px;
-  background: #d9e2ec;
-}
-
-.ai-summary {
-  display: flex;
-  gap: 10px;
-  margin-top: 12px;
 }
 
 .ai-result-header {
@@ -246,43 +191,11 @@ onMounted(() => {
   margin-bottom: 14px;
 }
 
-.ai-result-title-wrap {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-width: 0;
-}
-
-.ai-badge {
-  display: flex;
-  flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 11px;
-  color: #ffffff;
-  background: #1f7a8c;
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.ai-result-title,
 .ai-result-subtitle {
   display: block;
-}
-
-.ai-result-title {
-  color: #12343b;
-  font-size: 16px;
-  font-weight: 700;
-}
-
-.ai-result-subtitle {
   margin-top: 4px;
   color: #627d98;
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: 12px;
 }
 
 .ai-result-status {
@@ -294,46 +207,11 @@ onMounted(() => {
   font-size: 11px;
 }
 
-.summary-item {
-  flex: 1;
-  padding: 12px;
-  border-radius: 10px;
-  background: #f8fafc;
-}
-
-.summary-item text {
-  display: block;
-  color: #627d98;
-  font-size: 12px;
-}
-
-.summary-item strong {
-  display: block;
-  margin-top: 6px;
-  color: #12343b;
-  font-size: 18px;
-}
-
-.summary-item strong.hazard-yes {
-  color: #c05621;
-}
-
-.summary-item strong.hazard-no {
-  color: #276749;
-}
-
-.confidence-track {
-  overflow: hidden;
-  height: 6px;
-  margin-top: 12px;
-  border-radius: 999px;
-  background: #e6eef2;
-}
-
-.confidence-bar {
-  height: 100%;
-  border-radius: 999px;
-  background: #1f7a8c;
+.report-image {
+  width: 100%;
+  height: 210px;
+  border-radius: 12px;
+  background: #d9e2ec;
 }
 
 .ai-insight {
@@ -360,7 +238,7 @@ onMounted(() => {
 }
 
 .field {
-  margin-bottom: 12px;
+  margin-top: 12px;
 }
 
 .field text {
@@ -390,6 +268,12 @@ onMounted(() => {
   border-radius: 12px;
   font-size: 16px;
   font-weight: 700;
+  transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.main-button:active {
+  transform: scale(0.98);
+  opacity: 0.9;
 }
 
 .main-button::after {

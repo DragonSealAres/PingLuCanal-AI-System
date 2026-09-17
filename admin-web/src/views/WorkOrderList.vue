@@ -1,29 +1,26 @@
 <script setup>
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { onMounted, reactive, ref } from 'vue'
+import { onMounted, ref } from 'vue'
+import { reviewImages } from '../api/ai'
 import { getHazards } from '../api/hazard'
-import { approveWorkOrder, finishWorkOrder, getWorkOrders, startWorkOrder } from '../api/workOrder'
+import { getBusinessLogs } from '../api/operationLog'
+import { getBaseUrl } from '../api/request'
+import { approveWorkOrder, getWorkOrders } from '../api/workOrder'
 
 const loading = ref(false)
 const actionLoading = ref(false)
+const reviewLoading = ref(false)
 const workOrders = ref([])
 const hazards = ref([])
-const finishDialogVisible = ref(false)
-const detailDialogVisible = ref(false)
 const currentOrder = ref(null)
 const currentHazard = ref(null)
-const finishFormRef = ref(null)
-const finishForm = reactive({
-  handleRemark: '',
-  handleImage: '',
-})
-
-const finishRules = {
-  handleRemark: [{ required: true, message: '请输入处理说明', trigger: 'blur' }],
-}
+const detailDialogVisible = ref(false)
+const reviewDialogVisible = ref(false)
+const reviewResult = ref(null)
+const logs = ref([])
 
 function statusTagType(status) {
-  if (status === '待派单') return 'info'
+  if (status === '待派单' || status === '待处理') return 'info'
   if (status === '处理中') return 'warning'
   if (status === '待复核') return 'primary'
   if (status === '已完成') return 'success'
@@ -43,7 +40,11 @@ function formatTime(value) {
 
 function fileUrl(url) {
   if (!url) return ''
-  return url.startsWith('http') ? url : `http://localhost:8080${url}`
+  return url.startsWith('http') ? url : `${getBaseUrl()}${url}`
+}
+
+function statusLabel(status) {
+  return status === '待派单' ? '待处理' : status || '-'
 }
 
 function hazardFor(order) {
@@ -61,46 +62,15 @@ async function loadWorkOrders() {
   }
 }
 
-function openDetail(row) {
+async function openDetail(row) {
   currentOrder.value = row
   currentHazard.value = hazardFor(row)
+  logs.value = (await getBusinessLogs('WORK_ORDER', row.id)) || []
   detailDialogVisible.value = true
 }
 
-async function handleStart(row) {
-  await ElMessageBox.confirm(`确认开始处理工单 ${row.orderNo}？`, '开始处理', { type: 'warning' })
-  actionLoading.value = true
-  try {
-    await startWorkOrder(row.id)
-    ElMessage.success('工单已进入处理中')
-    await loadWorkOrders()
-  } finally {
-    actionLoading.value = false
-  }
-}
-
-function openFinishDialog(row) {
-  currentOrder.value = row
-  finishForm.handleRemark = ''
-  finishForm.handleImage = row.handleImage || ''
-  finishDialogVisible.value = true
-}
-
-async function submitFinish() {
-  await finishFormRef.value.validate()
-  actionLoading.value = true
-  try {
-    await finishWorkOrder(currentOrder.value.id, { ...finishForm })
-    ElMessage.success('处理结果已提交')
-    finishDialogVisible.value = false
-    await loadWorkOrders()
-  } finally {
-    actionLoading.value = false
-  }
-}
-
 async function handleApprove(row) {
-  await ElMessageBox.confirm(`确认审核完成工单 ${row.orderNo}？`, '审核完成', { type: 'warning' })
+  await ElMessageBox.confirm(`确认最终复核工单 ${row.orderNo}？`, '最终复核', { type: 'warning' })
   actionLoading.value = true
   try {
     await approveWorkOrder(row.id)
@@ -108,6 +78,31 @@ async function handleApprove(row) {
     await loadWorkOrders()
   } finally {
     actionLoading.value = false
+  }
+}
+
+async function handleAiReview(row) {
+  const hazard = hazardFor(row)
+  if (!hazard?.imageUrl || !row.handleImage) {
+    ElMessage.error('处理前和处理后照片均存在后才能进行AI复核')
+    return
+  }
+
+  reviewLoading.value = true
+  reviewResult.value = null
+  currentOrder.value = row
+  currentHazard.value = hazard
+  try {
+    reviewResult.value = await reviewImages({
+      beforeImageUrl: hazard.imageUrl,
+      afterImageUrl: row.handleImage,
+      hazardType: hazard.hazardType,
+      riskLevel: hazard.riskLevel,
+      handleRemark: row.handleRemark,
+    })
+    reviewDialogVisible.value = true
+  } finally {
+    reviewLoading.value = false
   }
 }
 
@@ -125,25 +120,12 @@ onMounted(loadWorkOrders)
     </div>
 
     <section class="panel">
-      <el-table v-loading="loading" :data="workOrders" row-key="id" height="calc(100vh - 238px)">
+      <el-table v-loading="loading" :data="workOrders" row-key="id" stripe height="calc(100vh - 238px)">
         <el-table-column prop="orderNo" label="工单编号" min-width="190" />
-        <el-table-column label="关联隐患" width="110">
-          <template #default="{ row }">#{{ row.hazardId }}</template>
+        <el-table-column label="关联隐患" width="130">
+          <template #default="{ row }">{{ hazardFor(row)?.reportNo || `#${row.hazardId}` }}</template>
         </el-table-column>
-        <el-table-column label="隐患图片" width="96">
-          <template #default="{ row }">
-            <el-image
-              v-if="hazardFor(row)?.imageUrl"
-              class="table-image"
-              :src="fileUrl(hazardFor(row).imageUrl)"
-              :preview-src-list="[fileUrl(hazardFor(row).imageUrl)]"
-              preview-teleported
-              fit="cover"
-            />
-            <span v-else>-</span>
-          </template>
-        </el-table-column>
-        <el-table-column label="隐患类型" width="110">
+        <el-table-column label="隐患类型" width="120">
           <template #default="{ row }">{{ hazardFor(row)?.hazardType || '-' }}</template>
         </el-table-column>
         <el-table-column label="风险等级" width="110">
@@ -151,43 +133,37 @@ onMounted(loadWorkOrders)
             <el-tag v-if="hazardFor(row)" :type="riskTagType(hazardFor(row).riskLevel)">
               {{ hazardFor(row).riskLevel }}
             </el-tag>
-            <span v-else>-</span>
           </template>
-        </el-table-column>
-        <el-table-column label="位置" min-width="180" show-overflow-tooltip>
-          <template #default="{ row }">{{ hazardFor(row)?.location || '-' }}</template>
         </el-table-column>
         <el-table-column prop="title" label="工单标题" min-width="180" show-overflow-tooltip />
-        <el-table-column prop="handler" label="处理人员" width="130" />
+        <el-table-column label="处置人员" width="130">
+          <template #default="{ row }">{{ row.handlerName || row.handler }}</template>
+        </el-table-column>
+        <el-table-column label="派单人" width="130">
+          <template #default="{ row }">{{ row.assignedByName || '-' }}</template>
+        </el-table-column>
+        <el-table-column label="最终复核人" width="130">
+          <template #default="{ row }">{{ row.reviewUserName || '-' }}</template>
+        </el-table-column>
         <el-table-column label="状态" width="110">
           <template #default="{ row }">
-            <el-tag :type="statusTagType(row.status)">{{ row.status }}</el-tag>
+            <el-tag :type="statusTagType(row.status)">{{ statusLabel(row.status) }}</el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="handleRemark" label="处理说明" min-width="240" show-overflow-tooltip />
         <el-table-column label="创建时间" width="180">
           <template #default="{ row }">{{ formatTime(row.createTime) }}</template>
         </el-table-column>
-        <el-table-column label="操作" fixed="right" width="230">
+        <el-table-column label="操作" fixed="right" width="220">
           <template #default="{ row }">
             <el-button type="primary" link @click="openDetail(row)">查看详情</el-button>
             <el-button
-              v-if="row.status === '待派单'"
+              v-if="row.status === '待复核'"
               type="primary"
               link
-              :loading="actionLoading"
-              @click="handleStart(row)"
+              :loading="reviewLoading"
+              @click="handleAiReview(row)"
             >
-              开始处理
-            </el-button>
-            <el-button
-              v-if="row.status === '处理中'"
-              type="primary"
-              link
-              :loading="actionLoading"
-              @click="openFinishDialog(row)"
-            >
-              提交处理结果
+              AI复核
             </el-button>
             <el-button
               v-if="row.status === '待复核'"
@@ -196,34 +172,29 @@ onMounted(loadWorkOrders)
               :loading="actionLoading"
               @click="handleApprove(row)"
             >
-              审核完成
+              复核完成
             </el-button>
           </template>
         </el-table-column>
       </el-table>
     </section>
 
-    <el-dialog v-model="detailDialogVisible" title="工单详情" width="700px">
+    <el-dialog v-model="detailDialogVisible" title="工单详情" width="760px">
       <el-descriptions v-if="currentOrder" :column="2" border>
         <el-descriptions-item label="工单编号">{{ currentOrder.orderNo }}</el-descriptions-item>
-        <el-descriptions-item label="工单状态">
-          <el-tag :type="statusTagType(currentOrder.status)">{{ currentOrder.status }}</el-tag>
+        <el-descriptions-item label="状态">
+          <el-tag :type="statusTagType(currentOrder.status)">{{ statusLabel(currentOrder.status) }}</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="关联隐患">{{ currentHazard?.reportNo || `#${currentOrder.hazardId}` }}</el-descriptions-item>
-        <el-descriptions-item label="处置人员">{{ currentOrder.handler }}</el-descriptions-item>
-        <el-descriptions-item label="创建时间">{{ formatTime(currentOrder.createTime) }}</el-descriptions-item>
-        <el-descriptions-item label="提交时间">
-          {{ currentOrder.status === '待复核' || currentOrder.status === '已完成'
-            ? formatTime(currentOrder.updateTime)
-            : '-' }}
-        </el-descriptions-item>
+        <el-descriptions-item label="处置人员">{{ currentOrder.handlerName || currentOrder.handler }}</el-descriptions-item>
+        <el-descriptions-item label="派单人">{{ currentOrder.assignedByName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="派单时间">{{ formatTime(currentOrder.assignedTime) }}</el-descriptions-item>
+        <el-descriptions-item label="最终复核人">{{ currentOrder.reviewUserName || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="复核时间">{{ formatTime(currentOrder.reviewTime) }}</el-descriptions-item>
         <el-descriptions-item label="工单标题" :span="2">{{ currentOrder.title }}</el-descriptions-item>
         <el-descriptions-item label="处置要求" :span="2">{{ currentOrder.requirement || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="隐患类型">{{ currentHazard?.hazardType || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="风险等级">{{ currentHazard?.riskLevel || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="隐患位置" :span="2">{{ currentHazard?.location || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="处理说明" :span="2">{{ currentOrder.handleRemark || '-' }}</el-descriptions-item>
-        <el-descriptions-item label="处理前照片" :span="1">
+        <el-descriptions-item label="处置说明" :span="2">{{ currentOrder.handleRemark || '-' }}</el-descriptions-item>
+        <el-descriptions-item label="处理前照片">
           <el-image
             v-if="currentHazard?.imageUrl"
             class="detail-image-small"
@@ -232,9 +203,8 @@ onMounted(loadWorkOrders)
             preview-teleported
             fit="cover"
           />
-          <span v-else>-</span>
         </el-descriptions-item>
-        <el-descriptions-item label="处理后照片" :span="1">
+        <el-descriptions-item label="处理后照片">
           <el-image
             v-if="currentOrder.handleImage"
             class="detail-image-small"
@@ -243,33 +213,76 @@ onMounted(loadWorkOrders)
             preview-teleported
             fit="cover"
           />
-          <span v-else>-</span>
         </el-descriptions-item>
       </el-descriptions>
+
+      <div class="trace-title">处置轨迹</div>
+      <el-timeline>
+        <el-timeline-item v-for="item in logs" :key="item.id" :timestamp="formatTime(item.createTime)">
+          {{ item.operatorName }} {{ item.action }} {{ item.remark || '' }}
+        </el-timeline-item>
+      </el-timeline>
+      <el-empty v-if="!logs.length" description="暂无轨迹" />
     </el-dialog>
 
-    <el-dialog v-model="finishDialogVisible" title="提交处理结果" width="520px">
-      <el-form ref="finishFormRef" :model="finishForm" :rules="finishRules" label-width="110px">
-        <el-form-item label="处理说明" prop="handleRemark">
-          <el-input v-model="finishForm.handleRemark" type="textarea" :rows="4" maxlength="1000" show-word-limit />
-        </el-form-item>
-        <el-form-item label="处理图片">
-          <el-input v-model="finishForm.handleImage" maxlength="500" />
-        </el-form-item>
-      </el-form>
+    <el-dialog v-model="reviewDialogVisible" title="AI智能复核结果" width="860px">
+      <div v-if="currentOrder && currentHazard && reviewResult" class="review-dialog">
+        <div class="review-images">
+          <el-image class="review-image" :src="fileUrl(currentHazard.imageUrl)" fit="cover" />
+          <el-image class="review-image" :src="fileUrl(currentOrder.handleImage)" fit="cover" />
+        </div>
+        <el-descriptions :column="2" border>
+          <el-descriptions-item label="复核状态">
+            <el-tag :type="reviewResult.resolved ? 'success' : 'warning'">
+              {{ reviewResult.reviewStatus || '-' }}
+            </el-tag>
+          </el-descriptions-item>
+          <el-descriptions-item label="置信度">{{ reviewResult.confidence ?? '-' }}</el-descriptions-item>
+          <el-descriptions-item label="处理前描述" :span="2">{{ reviewResult.beforeDescription || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="处理后描述" :span="2">{{ reviewResult.afterDescription || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="剩余风险" :span="2">{{ reviewResult.remainingRisk || '-' }}</el-descriptions-item>
+          <el-descriptions-item label="复核建议" :span="2">{{ reviewResult.recommendation || '-' }}</el-descriptions-item>
+        </el-descriptions>
+      </div>
+      <el-empty v-else description="暂无复核结果" />
       <template #footer>
-        <el-button @click="finishDialogVisible = false">取消</el-button>
-        <el-button type="primary" :loading="actionLoading" @click="submitFinish">提交</el-button>
+        <el-button @click="reviewDialogVisible = false">关闭</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <style scoped>
+.review-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.review-images {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.review-image {
+  width: 100%;
+  height: 240px;
+  border: 1px solid var(--surface-border);
+  border-radius: 8px;
+  background: #e2f2f6;
+}
+
 .detail-image-small {
   width: 180px;
   height: 120px;
-  border-radius: 6px;
-  border: 1px solid #d9e2ec;
+  border-radius: 8px;
+  border: 1px solid var(--surface-border);
+}
+
+.trace-title {
+  margin: 18px 0 10px;
+  color: var(--text-title);
+  font-weight: 700;
 }
 </style>

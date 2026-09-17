@@ -1,3 +1,5 @@
+import { getToken, logout } from '../utils/auth'
+
 function resolveBaseUrl() {
   const configuredBaseUrl = import.meta.env?.VITE_API_BASE_URL
   if (configuredBaseUrl) {
@@ -5,7 +7,7 @@ function resolveBaseUrl() {
   }
 
   if (typeof window !== 'undefined' && window.location.hostname) {
-    return `${window.location.protocol}//${window.location.hostname}:8080`
+    return ''
   }
 
   return 'http://localhost:8080'
@@ -13,6 +15,22 @@ function resolveBaseUrl() {
 
 export function getBaseUrl() {
   return resolveBaseUrl()
+}
+
+function authHeader(options = {}) {
+  const token = getToken()
+  return {
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    ...(options.header || {}),
+  }
+}
+
+function handleUnauthorized(res) {
+  const code = res.statusCode || res.data?.code
+  if (code === 401 || res.data?.code === 401) {
+    logout()
+    uni.reLaunch({ url: '/pages/login/login' })
+  }
 }
 
 function buildRequestFailMessage(error) {
@@ -35,7 +53,7 @@ export function request(options) {
       data: options.data || {},
       header: {
         'Content-Type': 'application/json',
-        ...(options.header || {}),
+        ...authHeader(options),
       },
       success: (res) => {
         const result = res.data
@@ -44,6 +62,7 @@ export function request(options) {
           return
         }
 
+        handleUnauthorized(res)
         const message = result?.message || `请求失败(${res.statusCode})`
         uni.showToast({ title: message, icon: 'none' })
         reject(new Error(message))
@@ -64,6 +83,7 @@ export function uploadFile(options) {
       filePath: options.filePath,
       name: options.name || 'file',
       formData: options.formData || {},
+      header: authHeader(options),
       timeout: options.timeout || 60000,
       success: (res) => {
         let result = res.data
@@ -80,6 +100,7 @@ export function uploadFile(options) {
           return
         }
 
+        handleUnauthorized({ ...res, data: result })
         const message = result?.message || `上传失败(${res.statusCode})`
         uni.showToast({ title: message, icon: 'none' })
         reject(new Error(message))
