@@ -35,6 +35,12 @@
       "style": {
         "navigationBarTitleText": "工单详情"
       }
+    },
+    {
+      "path": "pages/ai-assistant/ai-assistant",
+      "style": {
+        "navigationBarTitleText": "AI航运助手"
+      }
     }
   ],
   "globalStyle": {

@@ -200,7 +200,7 @@ onMounted(() => {
       </view>
     </view>
 
-    <view v-if="order && order.status === '待派单'" class="section">
+    <view v-if="order && (order.status === '待派单' || order.status === '待处理')" class="section">
       <button class="main-button primary" :loading="actionLoading" @click="handleStart">开始处理</button>
     </view>
 

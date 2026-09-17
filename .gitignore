@@ -1,0 +1,33 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+logs/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Dependencies and build outputs
+node_modules/
+**/node_modules/
+target/
+**/target/
+dist/
+**/dist/
+dist-ssr/
+
+# Runtime uploads and local artifacts
+uploads/
+**/uploads/
+*.zip
+
+# IDE and OS files
+.idea/
+.vscode/
+!.vscode/settings.json
+.DS_Store
+Thumbs.db
+*.iml

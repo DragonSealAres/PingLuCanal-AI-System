@@ -22,7 +22,14 @@ function formatTime(value) {
 }
 
 function showDetail(report) {
-  const aiResult = report.aiResult ? JSON.parse(report.aiResult) : null
+  let aiResult = null
+  if (report.aiResult) {
+    try {
+      aiResult = JSON.parse(report.aiResult)
+    } catch {
+      aiResult = null
+    }
+  }
   uni.showModal({
     title: report.reportNo,
     content: `位置：${report.location}\n类型：${report.hazardType}\n风险：${report.riskLevel}\n描述：${report.description}\n建议：${aiResult?.suggestion || '-'}`,

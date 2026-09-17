@@ -15,6 +15,18 @@ export function getBaseUrl() {
   return resolveBaseUrl()
 }
 
+function buildRequestFailMessage(error) {
+  if (error?.errMsg?.includes('timeout')) return '后端连接超时'
+  if (error?.errMsg?.includes('request:fail')) return '后端连接失败'
+  return '网络请求失败'
+}
+
+function buildUploadFailMessage(error) {
+  if (error?.errMsg?.includes('timeout')) return '图片上传超时'
+  if (error?.errMsg?.includes('uploadFile:fail')) return '图片上传失败，请检查后端服务'
+  return '图片上传失败'
+}
+
 export function request(options) {
   return new Promise((resolve, reject) => {
     uni.request({
@@ -37,7 +49,7 @@ export function request(options) {
         reject(new Error(message))
       },
       fail: (error) => {
-        uni.showToast({ title: '网络请求失败', icon: 'none' })
+        uni.showToast({ title: buildRequestFailMessage(error), icon: 'none' })
         reject(error)
       },
     })
@@ -73,7 +85,7 @@ export function uploadFile(options) {
         reject(new Error(message))
       },
       fail: (error) => {
-        uni.showToast({ title: '图片上传失败', icon: 'none' })
+        uni.showToast({ title: buildUploadFailMessage(error), icon: 'none' })
         reject(error)
       },
     })
